@@ -647,31 +647,19 @@ class CopyPaste:
 class Albumentations:
     """YOLOv8 Albumentations class (optional, only used if package is installed)"""
 
-    def __init__(self, p=1.0):
+    def __init__(self, transform_dict, p=1.0):
         """Initialize the transform object for YOLO bbox formatted params."""
         self.p = p
         self.transform = None
         prefix = colorstr('albumentations: ')
         try:
             import albumentations as A
-
-            check_version(A.__version__, '1.0.3', hard=True)  # version requirement
-
-            T = [
-                A.Blur(p=0.01),
-                A.MedianBlur(p=0.01),
-                A.ToGray(p=0.01),
-                A.CLAHE(p=0.01),
-                A.RandomBrightnessContrast(p=0.0),
-                A.RandomGamma(p=0.0),
-                A.ImageCompression(quality_lower=75, p=0.0)]  # transforms
-            self.transform = A.Compose(T, bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
-
-            LOGGER.info(prefix + ', '.join(f'{x}'.replace('always_apply=False, ', '') for x in T if x.p))
-        except ImportError:  # package not installed, skip
-            pass
+            self.transform = A.from_dict(transform_dict)
+            LOGGER.info(prefix + str(self.transform))
+        except ImportError:
+            LOGGER.info(f'ImportError | {prefix}{e}')
         except Exception as e:
-            LOGGER.info(f'{prefix}{e}')
+            LOGGER.info(f'Exception | {prefix}{e}')
 
     def __call__(self, labels):
         """Generates object detections and returns a dictionary with detection results."""
@@ -788,7 +776,7 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
     return Compose([
         pre_transform,
         MixUp(dataset, pre_transform=pre_transform, p=hyp.mixup),
-        Albumentations(p=1.0),
+        Albumentations(hyp.albumentations, p=1.0),
         RandomHSV(hgain=hyp.hsv_h, sgain=hyp.hsv_s, vgain=hyp.hsv_v),
         RandomFlip(direction='vertical', p=hyp.flipud),
         RandomFlip(direction='horizontal', p=hyp.fliplr, flip_idx=flip_idx)])  # transforms
